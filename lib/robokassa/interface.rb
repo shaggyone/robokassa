@@ -31,12 +31,12 @@ class Robokassa::Interface
 
   def notify(params)
     parsed_params = map_params(params, @@notification_params_map)
-    self.class.notify_by_lambda.call self, parsed_params[:invoice_id], parsed_params[:amount], parsed_params[:custom_options]
+    notify_by_lambda.call self, parsed_params[:invoice_id], parsed_params[:amount], parsed_params[:custom_options]
   end
 
   def success(params)
     parsed_params = map_params(params, @@notification_params_map)
-    self.class.success_by_lambda self, parsed_params[:invoice_id], parsed_params[:amount], parsed_params[:language], parsed_params[:custom_options]
+    success_by_lambda self, parsed_params[:invoice_id], parsed_params[:amount], parsed_params[:language], parsed_params[:custom_options]
   end
 
   def fail(params)
