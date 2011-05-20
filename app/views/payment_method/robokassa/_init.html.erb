@@ -1,0 +1,30 @@
+<div class='robokassa'>
+  <%= form_tag interface.init_payment_base_url, :method =>:post do %>
+    <%
+      options = interface.init_payment_options(invoice_id, amount, description, custom_options)
+      options.delete 'Culture'
+    %>
+    <% options.each do |name, value| %>
+      <%= hidden_field_tag name, value %>
+    <% end %>
+    <ul class='robokassa-groups'>
+      <% interface.rates(amount).each do |group_name, group| %>
+        <li class='robokassa-group robokassa-<%= group_name.downcase %>'>
+          <p class='robokassa-group-description'><%= group[:description] %></p>
+          <ul>
+            <% group[:currencies].each do |currency_name, currency| %>
+              <li class='robokassa-group-currency'>
+                <%= label_tag "IncCurrLabel_#{currency_name}" do %>
+                  <%= radio_button_tag "IncCurrLabel", currency_name %>
+                  <%= currency[:currency_description] %>
+                  <%= number_to_currency currency[:amount], :delimiter => " ", :format=>'%n' %>
+                <% end %>
+              </li>
+            <% end %>
+          </ul>
+        </li>
+      <% end %>
+    </ul>
+    <%= submit_tag t("robokassa.proceed_to_payment") %>
+  <% end %>
+</div>
