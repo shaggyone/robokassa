@@ -2,13 +2,13 @@ class RobokassaController < ActionController::Base
   protect_from_forgery :only => []
 
   def notify
-    begin
+#    begin
       i = Robokassa::Interface.create_by_notification_key params[:notification_key]
       params.delete :notification_key
       render :text => i.notify(params)
-    rescue Exception => e
-      render :text => e.to_s
-    end
+#    rescue Exception => e
+#      render :text => e.to_s
+#    end
   end
 
   def success
