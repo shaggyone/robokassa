@@ -1,5 +1,5 @@
 <div class='robokassa'>
-  <%= form_tag interface.init_payment_base_url, :method =>:post do %>
+<form action="<%=interface.init_payment_base_url %>" method="get">
     <%
       options = interface.init_payment_options(invoice_id, amount, description, custom_options)
       options.delete 'Culture'
@@ -26,5 +26,5 @@
       <% end %>
     </ul>
     <%= submit_tag t("robokassa.proceed_to_payment") %>
-  <% end %>
+  </form>
 </div>

@@ -2,7 +2,8 @@ require 'net/http'
 require 'net/https'
 require 'rexml/document'
 
-class Robokassa::Interface
+module Robokassa
+  class Interface
   include ActionDispatch::Routing::UrlFor
   include Rails.application.routes.url_helpers
   extend Robokassa::Setup
@@ -28,20 +29,28 @@ class Robokassa::Interface
   def self.create_by_notification_key(key)
     self.new get_options_by_notification_key(key)
   end
-
+  
   def notify(params)
     parsed_params = map_params(params, @@notification_params_map)
-    notify_by_lambda.call self, parsed_params[:invoice_id], parsed_params[:amount], parsed_params[:custom_options]
+    notify_by_lambda parsed_params[:invoice_id], parsed_params[:amount], parsed_params[:custom_options]
   end
 
   def success(params)
-    parsed_params = map_params(params, @@notification_params_map)
-    success_by_lambda self, parsed_params[:invoice_id], parsed_params[:amount], parsed_params[:language], parsed_params[:custom_options]
+    self.class.suceess self, params
   end
 
   def fail(params)
+    self.class.fail self, params
+  end
+
+  def self.success(interface, params)
     parsed_params = map_params(params, @@notification_params_map)
-    fail_by_lambda parsed_params[:invoice_id], parsed_params[:amount], parsed_params[:language], parsed_params[:custom_options]
+    success_by_lambda interface, parsed_params[:invoice_id], parsed_params[:amount], parsed_params[:language], parsed_params[:custom_options]
+  end
+
+  def self.fail(params)
+    parsed_params = map_params(params, @@notification_params_map)
+    fail_by_lambda interface, parsed_params[:invoice_id], parsed_params[:amount], parsed_params[:language], parsed_params[:custom_options]
   end
 
 # def init_payment_url(options)
@@ -154,7 +163,14 @@ class Robokassa::Interface
     robokassa_on_fail_url :notification_key => @options[:notification_key]
   end
 
+  def on_suceess_long_url
+    robokassa_on_success_long_url :notification_key => @options[:notification_key]
+  end
 
+  def on_fail_long_url
+    robokassa_on_fail_long_url :notification_key => @options[:notification_key]
+  end
+  
 #private
   def parse_response_params(params)
     parsed_params = map_params(params, @@notification_params_map)
@@ -165,20 +181,16 @@ class Robokassa::Interface
   end
 
   def notify_by_lambda(invoice_id, amount, custom_options)
-    begin
-      self.class.notify_lambda(self, invoice_id, amount, custom_options)
-      "OK#{invoice_id}"
-    rescue Exception => e
-      e.to_s
-    end
+    self.class.notify_lambda.call self, invoice_id, amount, custom_options
+    "OK#{invoice_id}"
   end
 
-  def success_by_lambda invoice_id, amount, language, custom_options
-    self.class.on_success_lambda self, :invoice_id, :amount, :language, :custom_options
+  def self.success_by_lambda interface, invoice_id, amount, language, custom_options
+    Robokassa::Setup.on_success_lambda.call interface, invoice_id, amount, language, custom_options
   end
 
-  def fail_by_lambda invoice_id, amount, language, custom_options
-    self.class.on_fail_lambda self, :invoice_id, :amount, :language, :custom_options
+  def self.fail_by_lambda interface, invoice_id, amount, language, custom_options
+    Robokassa::Setup.on_fail_lambda.call interface, invoice_id, amount, language, custom_options
   end
 
   def rates_url(amount, currency)
@@ -217,11 +229,13 @@ class Robokassa::Interface
   end
 
   def response_signature(parsed_params)
-    md5("#{parsed_params[:amount]}:#{parsed_params[:invoice_id]}:#{@options[:password2]}:#{parsed_params[:custom_options].sort.map{|x|"shp#{x[0]}=x[1]]"}}")
+    custom_options_fmt = custom_options.sort.map{|x|"shp#{x[0]}=x[1]]"}.join(":")
+    md5("#{parsed_params[:amount]}:#{parsed_params[:invoice_id]}:#{@options[:password2]}#{custom_options_fmt ? ":" + custom_options_fmt : ""}")
   end
 
   def init_payment_signature(invoice_id, amount, description, custom_options={})
-    md5("#{@options[:login]}:#{amount}:#{invoice_id}:#{@options[:password1]}:#{custom_options.sort.map{|x|"shp#{x[0]}=x[1]]"}}")
+    custom_options_fmt = custom_options.sort.map{|x|"shp#{x[0]}=x[1]]"}.join(":")
+    md5("#{@options[:login]}:#{amount}:#{invoice_id}:#{@options[:password1]}#{custom_options_fmt ? ":" + custom_options_fmt : ""}")
   end
 
   def base_url
@@ -272,8 +286,12 @@ class Robokassa::Interface
   end
 
   # Maps gem parameter names, to robokassa names
+  def self.map_params(params, map)
+    Hash[params.map do|key, value| [(map[key] || map[key.to_sym] || key), value] end]
+  end
+
   def map_params(params, map)
-    Hash[params.map do|key, value| [(map[key.to_sym] || key), value] end]
+    self.class.map_params params, map
   end
 
   def query_string(params)
@@ -287,4 +305,5 @@ class Robokassa::Interface
     xml_data = URI.parse(url).read
     doc = REXML::Document.new(xml_data)
   end
+end
 end
