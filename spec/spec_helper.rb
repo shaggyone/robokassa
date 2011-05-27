@@ -2,7 +2,7 @@ $:.unshift File.expand_path('..', __FILE__)
 $:.unshift File.expand_path('../../lib', __FILE__)
 
 ENV["RAILS_ENV"] ||= 'test'
-require File.expand_path("../../../test_app/config/application", __FILE__)
+require File.expand_path("../test_app/config/application", __FILE__)
 require File.expand_path("../../config/routes", __FILE__)
 
 require 'rspec/rails'  

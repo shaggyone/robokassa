@@ -1,5 +1,4 @@
 require File.dirname(__FILE__) + '/../spec_helper'
-require 'robokassa/setup'
 require 'robokassa/interface'
 describe "Interface should work correct" do
   before :each do
