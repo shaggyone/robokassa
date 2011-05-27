@@ -1,12 +1,14 @@
+require 'cgi'
 require 'net/http'
 require 'net/https'
 require 'rexml/document'
 
 module Robokassa
-  class Interface
+class Interface
   include ActionDispatch::Routing::UrlFor
   include Rails.application.routes.url_helpers
-  extend Robokassa::Setup
+
+  cattr_accessor :config
 
   @@default_options = {
     :language => "ru"
@@ -32,7 +34,8 @@ module Robokassa
   
   def notify(params)
     parsed_params = map_params(params, @@notification_params_map)
-    notify_by_lambda parsed_params[:invoice_id], parsed_params[:amount], parsed_params[:custom_options]
+    notify_implementation parsed_params[:invoice_id], parsed_params[:amount], parsed_params[:custom_options]
+    "OK#{parsed_params[:invoice_id]}"
   end
 
   def success(params)
@@ -43,19 +46,20 @@ module Robokassa
     self.class.fail self, params
   end
 
-  def self.success(interface, params)
+  def self.success(params)
     parsed_params = map_params(params, @@notification_params_map)
-    success_by_lambda interface, parsed_params[:invoice_id], parsed_params[:amount], parsed_params[:language], parsed_params[:custom_options]
+    success_implementation parsed_params[:invoice_id], parsed_params[:amount], parsed_params[:language], parsed_params[:custom_options]
   end
 
   def self.fail(params)
     parsed_params = map_params(params, @@notification_params_map)
-    fail_by_lambda interface, parsed_params[:invoice_id], parsed_params[:amount], parsed_params[:language], parsed_params[:custom_options]
+    fail_implementation parsed_params[:invoice_id], parsed_params[:amount], parsed_params[:language], parsed_params[:custom_options]
   end
 
-# def init_payment_url(options)
-#     
-# end
+  def init_payment_url(invoice_id, amount, description, currency='', language='ru', email='', custom_options={})
+    url_options = init_payment_options(invoice_id, amount, description, custom_options, currency, language, email)
+    "#{init_payment_base_url}?" + url_options.map do |k, v| "#{CGI::escape(k.to_s)}=#{CGI::escape(v.to_s)}" end.join('&')
+  end
 
   def payment_methods
     return @cache[:payment_methods] if @cache[:payment_methods] 
@@ -155,22 +159,14 @@ module Robokassa
     robokassa_notification_url :notification_key => @options[:notification_key]
   end
 
-  def on_suceess_url
-    robokassa_on_success_url :notification_key => @options[:notification_key]
+  def on_success_url
+    robokassa_on_success_url 
   end
 
   def on_fail_url
-    robokassa_on_fail_url :notification_key => @options[:notification_key]
+    robokassa_on_fail_url
   end
 
-  def on_suceess_long_url
-    robokassa_on_success_long_url :notification_key => @options[:notification_key]
-  end
-
-  def on_fail_long_url
-    robokassa_on_fail_long_url :notification_key => @options[:notification_key]
-  end
-  
 #private
   def parse_response_params(params)
     parsed_params = map_params(params, @@notification_params_map)
@@ -178,19 +174,6 @@ module Robokassa
     if response_signature(parsed_params)!=parsed_params[:signature].downcase
       raise "Invalid signature"
     end
-  end
-
-  def notify_by_lambda(invoice_id, amount, custom_options)
-    self.class.notify_lambda.call self, invoice_id, amount, custom_options
-    "OK#{invoice_id}"
-  end
-
-  def self.success_by_lambda interface, invoice_id, amount, language, custom_options
-    Robokassa::Setup.on_success_lambda.call interface, invoice_id, amount, language, custom_options
-  end
-
-  def self.fail_by_lambda interface, invoice_id, amount, language, custom_options
-    Robokassa::Setup.on_fail_lambda.call interface, invoice_id, amount, language, custom_options
   end
 
   def rates_url(amount, currency)
@@ -217,25 +200,37 @@ module Robokassa
     map_params(subhash(@options, %w{login language}), @@service_params_map)
   end
 
-  def init_payment_options(invoice_id, amount, description, custom_options = {})
-    options = subhash(@options, %w{login language}).merge(
+  def init_payment_options(invoice_id, amount, description, custom_options = {}, currency='', language='ru', email='')
+    options = {
       :login       => @options[:login],
+      :amount      => amount.to_s,
       :invoice_id  => invoice_id,
-      :amount      => amount,
       :description => description[0, 100],
-      :signature   => init_payment_signature(invoice_id, amount, description, custom_options)
-    ).merge(Hash[custom_options.sort.map{|x| ["shp#{x[0]}", x[1]]}])
+      :signature   => init_payment_signature(invoice_id, amount, description, custom_options),
+      :currency    => currency,
+      :email       => email,
+      :language    => language
+    }.merge(Hash[custom_options.sort.map{|x| ["shp#{x[0]}", x[1]]}])
     map_params(options, @@params_map)
   end
 
   def response_signature(parsed_params)
-    custom_options_fmt = custom_options.sort.map{|x|"shp#{x[0]}=x[1]]"}.join(":")
-    md5("#{parsed_params[:amount]}:#{parsed_params[:invoice_id]}:#{@options[:password2]}#{custom_options_fmt ? ":" + custom_options_fmt : ""}")
+    md5 response_signature_string(parsed_params)
   end
 
-  def init_payment_signature(invoice_id, amount, description, custom_options={})
+  def response_signature_string(parsed_params)
     custom_options_fmt = custom_options.sort.map{|x|"shp#{x[0]}=x[1]]"}.join(":")
-    md5("#{@options[:login]}:#{amount}:#{invoice_id}:#{@options[:password1]}#{custom_options_fmt ? ":" + custom_options_fmt : ""}")
+    "#{parsed_params[:amount]}:#{parsed_params[:invoice_id]}:#{@options[:password2]}#{unless custom_options_fmt.blank? then ":" + custom_options_fmt else "" end}"
+  end
+
+
+  def init_payment_signature(invoice_id, amount, description, custom_options={})
+    md5 init_payment_signature_string(invoice_id, amount, description, custom_options)
+  end
+
+  def init_payment_signature_string(invoice_id, amount, description, custom_options={})
+    custom_options_fmt = custom_options.sort.map{|x|"shp#{x[0]}=#{x[1]}"}.join(":")
+    "#{@options[:login]}:#{amount}:#{invoice_id}:#{@options[:password1]}#{unless custom_options_fmt.blank? then ":" + custom_options_fmt else "" end}"
   end
 
   def base_url
@@ -263,7 +258,7 @@ module Robokassa
       'InvId'          => :invoice_id,
       'Desc'           => :description,
       'Email'          => :email,
-      'IncCurr'        => :currency,
+      'IncCurrLabel'   => :currency,
       'Culture'        => :language,
       'SignatureValue' => :signature
     }.invert

@@ -2,7 +2,7 @@
 <form action="<%=interface.init_payment_base_url %>" method="get">
     <%
       options = interface.init_payment_options(invoice_id, amount, description, custom_options)
-      options.delete 'Culture'
+      options.delete 'IncCurrLabel'
     %>
     <% options.each do |name, value| %>
       <%= hidden_field_tag name, value %>
@@ -25,6 +25,7 @@
         </li>
       <% end %>
     </ul>
-    <%= submit_tag t("robokassa.proceed_to_payment") %>
+    <%= submit_tag "pay" #"robokassa.proceed_to_payment") 
+    %>
   </form>
 </div>
