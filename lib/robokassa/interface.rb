@@ -32,28 +32,20 @@ class Interface
     self.new get_options_by_notification_key(key)
   end
   
-  def notify(params)
+  def notify(params, controller)
     parsed_params = map_params(params, @@notification_params_map)
-    notify_implementation parsed_params[:invoice_id], parsed_params[:amount], parsed_params[:custom_options]
+    notify_implementation parsed_params[:invoice_id], parsed_params[:amount], parsed_params[:custom_options], controller
     "OK#{parsed_params[:invoice_id]}"
   end
 
-  def success(params)
-    self.class.suceess self, params
-  end
-
-  def fail(params)
-    self.class.fail self, params
-  end
-
-  def self.success(params)
+  def self.success(params, controller)
     parsed_params = map_params(params, @@notification_params_map)
-    success_implementation parsed_params[:invoice_id], parsed_params[:amount], parsed_params[:language], parsed_params[:custom_options]
+    success_implementation parsed_params[:invoice_id], parsed_params[:amount], parsed_params[:language], parsed_params[:custom_options], controller
   end
 
-  def self.fail(params)
+  def self.fail(params, controller)
     parsed_params = map_params(params, @@notification_params_map)
-    fail_implementation parsed_params[:invoice_id], parsed_params[:amount], parsed_params[:language], parsed_params[:custom_options]
+    fail_implementation parsed_params[:invoice_id], parsed_params[:amount], parsed_params[:language], parsed_params[:custom_options], controller
   end
 
   def init_payment_url(invoice_id, amount, description, currency='', language='ru', email='', custom_options={})
