@@ -1,5 +1,5 @@
 <div class='robokassa'>
-<form action="<%=interface.init_payment_base_url %>" method="get">
+  <form action="<%=interface.init_payment_base_url %>" method="get">
     <%
       options = interface.init_payment_options(invoice_id, amount, description, custom_options)
       options.delete 'IncCurrLabel'
@@ -8,14 +8,16 @@
       <%= hidden_field_tag name, value %>
     <% end %>
     <ul class='robokassa-groups'>
-      <% interface.rates(amount).each do |group_name, group| %>
+      <% interface.rates(amount).each_with_index do |group, i| %>
+        <% group_name, group = group %>
         <li class='robokassa-group robokassa-<%= group_name.downcase %>'>
           <p class='robokassa-group-description'><%= group[:description] %></p>
           <ul>
-            <% group[:currencies].each do |currency_name, currency| %>
+            <% group[:currencies].each_with_index do |currency, j| %>
+              <% currency_name, currency = currency %>
               <li class='robokassa-group-currency'>
-                <%= label_tag "IncCurrLabel_#{currency_name}" do %>
-                  <%= radio_button_tag "IncCurrLabel", currency_name %>
+                <%= label_tag "IncCurrLabel_#{i}_#{j}_#{currency_name}" do %>
+                  <%= radio_button_tag "IncCurrLabel", currency_name, false, :id => "IncCurrLabel_#{i}_#{j}_#{currency_name}" %>
                   <%= currency[:currency_description] %>
                   <%= number_to_currency currency[:amount], :delimiter => " ", :format=>'%n' %>
                 <% end %>
@@ -25,7 +27,6 @@
         </li>
       <% end %>
     </ul>
-    <%= submit_tag "pay" #"robokassa.proceed_to_payment") 
-    %>
+    <input type="submit" class="continue button primary" value="<%=t("robokassa.proceed_to_payment") %>" />
   </form>
 </div>
