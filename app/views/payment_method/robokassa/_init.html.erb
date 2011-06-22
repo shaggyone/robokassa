@@ -10,16 +10,16 @@
     <ul class='robokassa-groups'>
       <% interface.rates(amount).each_with_index do |group, i| %>
         <% group_name, group = group %>
-        <li class='robokassa-group robokassa-<%= group_name.downcase %>'>
+        <li class='robokassa-group robokassa-<%= group_name.underscore %>'>
           <p class='robokassa-group-description'><%= group[:description] %></p>
           <ul>
             <% group[:currencies].each_with_index do |currency, j| %>
               <% currency_name, currency = currency %>
-              <li class='robokassa-group-currency'>
-                <%= label_tag "IncCurrLabel_#{i}_#{j}_#{currency_name}" do %>
-                  <%= radio_button_tag "IncCurrLabel", currency_name, false, :id => "IncCurrLabel_#{i}_#{j}_#{currency_name}" %>
-                  <%= currency[:currency_description] %>
-                  <%= number_to_currency currency[:amount], :delimiter => " ", :format=>'%n' %>
+              <li class='robokassa-group-currency <%= "#{group_name.underscore}_#{currency_name.underscore}" %>'>
+                <%= label_tag "inc_curr_label_#{group_name.underscore}_#{currency_name.underscore}" do %>
+                  <%= radio_button_tag "IncCurrLabel", currency_name, false, :id => "inc_curr_label_#{group_name.underscore}_#{currency_name.underscore}" %>
+                  <span class="description"><%= currency[:currency_description] %></span>
+                  <span class="amount"><%= number_to_currency currency[:amount], :delimiter => " ", :format=>'%n' %></span>
                 <% end %>
               </li>
             <% end %>
