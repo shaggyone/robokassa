@@ -1,6 +1,7 @@
 require 'cgi'
 require 'net/http'
 require 'net/https'
+require 'open-uri'
 require 'rexml/document'
 
 module Robokassa
@@ -31,7 +32,7 @@ class Interface
   def self.create_by_notification_key(key)
     self.new get_options_by_notification_key(key)
   end
-  
+
   def notify(params, controller)
     parsed_params = map_params(params, @@notification_params_map)
     notify_implementation parsed_params[:invoice_id], parsed_params[:amount], parsed_params[:custom_options], controller
@@ -54,7 +55,7 @@ class Interface
   end
 
   def payment_methods
-    return @cache[:payment_methods] if @cache[:payment_methods] 
+    return @cache[:payment_methods] if @cache[:payment_methods]
     xml = get_remote_xml(payment_methods_url)
     if xml.elements['PaymentMethodsList/Result/Code'].text != '0'
       raise (a=xml.elements['PaymentMethodsList/Result/Description']) ? a.text : "Unknown error"
@@ -73,11 +74,11 @@ class Interface
       raise (a=xml.elements['RatesList/Result/Description']) ? a.text : "Unknown error"
     end
 
-    @cache[cache_key] = Hash[xml.elements.each('RatesList/Groups/Group'){}.map do|g|      
+    @cache[cache_key] = Hash[xml.elements.each('RatesList/Groups/Group'){}.map do|g|
       code = g.attributes['Code']
       description = g.attributes['Description']
       [
-        code, 
+        code,
         {
           :code        => code,
           :description => description,
@@ -85,7 +86,7 @@ class Interface
             label = c.attributes['Label']
             name  = c.attributes['Name']
             [label, {
-              :currency             => label, 
+              :currency             => label,
               :currency_description => name,
               :group                => code,
               :group_description    => description,
@@ -115,11 +116,11 @@ class Interface
     if xml.elements['CurrenciesList/Result/Code'].text != '0'
       raise (a=xml.elements['CurrenciesList/Result/Description']) ? a.text : "Unknown error"
     end
-    @cache[:currencies_long] = Hash[xml.elements.each('CurrenciesList/Groups/Group'){}.map do|g|      
+    @cache[:currencies_long] = Hash[xml.elements.each('CurrenciesList/Groups/Group'){}.map do|g|
       code = g.attributes['Code']
       description = g.attributes['Description']
       [
-        code, 
+        code,
         {
           :code        => code,
           :description => description,
@@ -127,7 +128,7 @@ class Interface
             label = c.attributes['Label']
             name  = c.attributes['Name']
             [label, {
-              :currency             => label, 
+              :currency             => label,
               :currency_description => name,
               :group                => code,
               :group_description    => description
@@ -152,7 +153,7 @@ class Interface
   end
 
   def on_success_url
-    robokassa_on_success_url 
+    robokassa_on_success_url
   end
 
   def on_fail_url
@@ -237,7 +238,7 @@ class Interface
     "#{base_url}/WebService/Service.asmx"
   end
 
-  @@notification_params_map = { 
+  @@notification_params_map = {
       'OutSum'         => :amount,
       'InvId'          => :invoice_id,
       'SignatureValue' => :signature,
@@ -262,7 +263,7 @@ class Interface
       'OutSum'         => :amount
     }.invert
 
-  def md5(str) 
+  def md5(str)
     Digest::MD5.hexdigest(str).downcase
   end
 
@@ -289,8 +290,13 @@ class Interface
 
   def get_remote_xml(url)
 #   xml_data = Net::HTTP.get_response(URI.parse(url)).body
-    xml_data = URI.parse(url).read
-    doc = REXML::Document.new(xml_data)
+    begin
+      xml_data = URI.parse(url).read
+      doc = REXML::Document.new(xml_data)
+    rescue REXML::ParseException => e
+      sleep 1
+      get_remote_xml(url)
+    end
   end
 end
 end
