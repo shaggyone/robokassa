@@ -1,7 +1,7 @@
 module Robokassa
   mattr_accessor :interface_class
 
-  def interface_class
+  def self.interface_class
     @@interface_class || ::Robokassa::Interface
   end
 
