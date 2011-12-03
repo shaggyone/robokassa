@@ -35,7 +35,7 @@ class Interface
 
   def notify(params, controller)
     parsed_params = map_params(params, @@notification_params_map)
-    notify_implementation parsed_params[:invoice_id], parsed_params[:amount], parsed_params[:custom_options], controller
+    self.class.notify_implementation parsed_params[:invoice_id], parsed_params[:amount], parsed_params[:custom_options], controller
     "OK#{parsed_params[:invoice_id]}"
   end
 
