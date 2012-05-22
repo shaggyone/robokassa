@@ -14,7 +14,7 @@ Gem::Specification.new do |s|
     Robokassa is payment system, that provides a single simple interface for payment systems popular in Russia.
     If you have customers in Russia you can use the gem.
 
-    The first thing about this gem, is that it was oribinally designed for spree commerce. So keep it in mind. 
+    The first thing about this gem, is that it was oribinally designed for spree commerce. So keep it in mind.
   }
 
   s.rubyforge_project = "robokassa"
@@ -24,9 +24,12 @@ Gem::Specification.new do |s|
   s.executables   = `git ls-files -- bin/*`.split("\n").map{ |f| File.basename(f) }
   s.require_paths = ["lib"]
 
-  s.add_dependency "rails", ">= 3.0.7"
+  s.add_dependency "rails", ">= 3.2.0"
 
   s.add_development_dependency "rake"
   s.add_development_dependency "thor"
+  s.add_development_dependency "shoulda"
   s.add_development_dependency "bundler", ">= 1.0.0"
+  s.add_development_dependency 'combustion', '~> 0.3.1'
+  s.add_development_dependency 'sqlite3'
 end
