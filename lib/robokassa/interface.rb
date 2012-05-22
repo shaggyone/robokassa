@@ -4,8 +4,7 @@ require 'net/https'
 require 'open-uri'
 require 'rexml/document'
 
-module Robokassa
-class Interface
+class Robokassa::Interface
   include ActionDispatch::Routing::UrlFor
   include Rails.application.routes.url_helpers
 
@@ -16,6 +15,9 @@ class Interface
   }
   @cache = {}
 
+  # Indicate if calling api in test mode
+  # === Returns
+  # true or false
   def test_mode?
     @options[:test_mode] || false
   end
@@ -24,37 +26,70 @@ class Interface
     @options[:owner]
   end
 
+  # Takes options to access Robokassa API
+  # 
+  # === Example
+  #   Robokassa::Interface.new test_mode: true, login: 'demo', password1: '12345', password2: 'qweqwe123'
+  #
   def initialize(options)
     @options = @@default_options.merge(options.symbolize_keys)
     @cache   = {}
   end
 
+  # This method creates new instance of Interface for specified key (for multi-account support)
+  # it calls then Robokassa call ResultURL callback
   def self.create_by_notification_key(key)
-    self.new get_options_by_notification_key(key)
+    self.new(get_options_by_notification_key(key))
   end
-
+  
+  # This method verificates request params recived from robocassa server
   def notify(params, controller)
     parsed_params = map_params(params, @@notification_params_map)
-    notify_implementation parsed_params[:invoice_id], parsed_params[:amount], parsed_params[:custom_options], controller
+    self.class.notify_implementation(
+      parsed_params[:invoice_id], 
+      parsed_params[:amount], 
+      parsed_params[:custom_options], 
+      controller)
     "OK#{parsed_params[:invoice_id]}"
   end
-
+  
+  # Handler for success api callback
+  # this method calls from RobokassaController
+  # It requires Robokassa::Interface.success_implementation to be inmplemented by user
   def self.success(params, controller)
     parsed_params = map_params(params, @@notification_params_map)
-    success_implementation parsed_params[:invoice_id], parsed_params[:amount], parsed_params[:language], parsed_params[:custom_options], controller
+    success_implementation(
+      parsed_params[:invoice_id], 
+      parsed_params[:amount], 
+      parsed_params[:language], 
+      parsed_params[:custom_options], 
+      controller)
   end
 
+  # Fail callback requiest handler
+  # It requires Robokassa::Interface.fail_implementation to be inmplemented by user
   def self.fail(params, controller)
     parsed_params = map_params(params, @@notification_params_map)
-    fail_implementation parsed_params[:invoice_id], parsed_params[:amount], parsed_params[:language], parsed_params[:custom_options], controller
+    fail_implementation(
+      parsed_params[:invoice_id], 
+      parsed_params[:amount], 
+      parsed_params[:language], 
+      parsed_params[:custom_options], 
+      controller)
   end
 
+
+  # Generates url for payment page
+  #
+  # === Example
+  # <%= link_to "Pay with Robokassa", interface.init_payment_url(order.id, order.amount, "Order #{order.id}", '', 'ru', order.user.email) %>
+  #
   def init_payment_url(invoice_id, amount, description, currency='', language='ru', email='', custom_options={})
     url_options = init_payment_options(invoice_id, amount, description, custom_options, currency, language, email)
     "#{init_payment_base_url}?" + url_options.map do |k, v| "#{CGI::escape(k.to_s)}=#{CGI::escape(v.to_s)}" end.join('&')
   end
 
-  def payment_methods
+  def payment_methods # :nodoc:
     return @cache[:payment_methods] if @cache[:payment_methods]
     xml = get_remote_xml(payment_methods_url)
     if xml.elements['PaymentMethodsList/Result/Code'].text != '0'
@@ -148,19 +183,24 @@ class Interface
     end]
   end
 
+  # for testing
+  # === Example
+  # i.default_url_options = { :host => '127.0.0.1', :port => 3000 }
+  # i.notification_url # => 'http://127.0.0.1:3000/robokassa/asfadsf/notify'
   def notification_url
     robokassa_notification_url :notification_key => @options[:notification_key]
   end
 
+  # for testing
   def on_success_url
     robokassa_on_success_url
   end
 
+  # for testing
   def on_fail_url
     robokassa_on_fail_url
   end
 
-#private
   def parse_response_params(params)
     parsed_params = map_params(params, @@notification_params_map)
     parsed_params[:custom_options] = Hash[args.select do |k,v| o.starts_with?('shp') end.sort.map do|k, v| [k[3, k.size], v] end]
@@ -193,6 +233,7 @@ class Interface
     map_params(subhash(@options, %w{login language}), @@service_params_map)
   end
 
+  # make hash of options for init_payment_url
   def init_payment_options(invoice_id, amount, description, custom_options = {}, currency='', language='ru', email='')
     options = {
       :login       => @options[:login],
@@ -207,33 +248,39 @@ class Interface
     map_params(options, @@params_map)
   end
 
+  # calculates signature to check params from Robokassa
   def response_signature(parsed_params)
     md5 response_signature_string(parsed_params)
   end
 
+  # build signature string
   def response_signature_string(parsed_params)
     custom_options_fmt = custom_options.sort.map{|x|"shp#{x[0]}=x[1]]"}.join(":")
     "#{parsed_params[:amount]}:#{parsed_params[:invoice_id]}:#{@options[:password2]}#{unless custom_options_fmt.blank? then ":" + custom_options_fmt else "" end}"
   end
 
-
+  # calculates md5 from result of :init_payment_signature_string
   def init_payment_signature(invoice_id, amount, description, custom_options={})
     md5 init_payment_signature_string(invoice_id, amount, description, custom_options)
   end
 
+  # generates signature string to calculate 'SignatureValue' url parameter
   def init_payment_signature_string(invoice_id, amount, description, custom_options={})
     custom_options_fmt = custom_options.sort.map{|x|"shp#{x[0]}=#{x[1]}"}.join(":")
     "#{@options[:login]}:#{amount}:#{invoice_id}:#{@options[:password1]}#{unless custom_options_fmt.blank? then ":" + custom_options_fmt else "" end}"
   end
 
+  # returns http://test.robokassa.ru or https://merchant.roboxchange.com in order to current mode
   def base_url
     test_mode? ? 'http://test.robokassa.ru' : 'https://merchant.roboxchange.com'
   end
 
+  # returns url to redirect user to payment page
   def init_payment_base_url
     "#{base_url}/Index.aspx"
   end
 
+  # returns base url for API access
   def xml_services_base_url
     "#{base_url}/WebService/Service.asmx"
   end
@@ -263,11 +310,11 @@ class Interface
       'OutSum'         => :amount
     }.invert
 
-  def md5(str)
+  def md5(str) #:nodoc:
     Digest::MD5.hexdigest(str).downcase
   end
 
-  def subhash(hash, keys)
+  def subhash(hash, keys) #:nodoc:
     Hash[keys.map do |key|
       [key.to_sym, hash[key.to_sym]]
     end]
@@ -278,16 +325,17 @@ class Interface
     Hash[params.map do|key, value| [(map[key] || map[key.to_sym] || key), value] end]
   end
 
-  def map_params(params, map)
+  def map_params(params, map) #:nodoc:
     self.class.map_params params, map
   end
 
-  def query_string(params)
+  def query_string(params) #:nodoc:
     params.map do |name, value|
       "#{CGI::escape(name.to_s)}=#{CGI::escape(value.to_s)}"
     end.join("&")
   end
 
+  # make request and parse XML from specified url
   def get_remote_xml(url)
 #   xml_data = Net::HTTP.get_response(URI.parse(url)).body
     begin
@@ -298,5 +346,13 @@ class Interface
       get_remote_xml(url)
     end
   end
-end
+  
+  
+  class << self
+    %w{success fail notify}.map{|m| m + '_implementation'} + ['get_options_by_notification_key'].each do |m|
+      define_method m.to_sym do |*args|
+        raise NoMethodError, "Robokassa::Interface.#{m} should be defined by app developer"
+      end
+    end
+  end
 end
