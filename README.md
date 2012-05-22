@@ -6,7 +6,7 @@ This gem adds robokassa support to your app.
 Robokassa is payment system, that provides a single simple interface for payment systems popular in Russia.
 If you have customers in Russia you can use the gem.
 
-The first thing about this gem, is that it was oribinally desgned for spree commerce. So keep it im mind. 
+The first thing about this gem, is that it was oribinally desgned for spree commerce. So keep it im mind.
 
 
 Using the Gem
@@ -41,7 +41,7 @@ module Robokassa
           password2: 'qwer5678'
         }
       end
-      
+
       def success_implementation(invoice_id, *args)
         Payment.find(invoice_id).confirm!
       end
@@ -49,7 +49,7 @@ module Robokassa
       def fail_implementation(invoice_id, *args)
         Payment.find(invoice_id).mark_failed!
       end
-  
+
       def notify_implementation(invoice_id, *args)
         Payment.find(invoice_id).verifity!
       end
@@ -82,13 +82,36 @@ class RobokassaController < Robokassa::Controller
     @payment = Payment.find(params[:InvId])
     redirect_to dashboard_path, notice: "Ваш платеж на сумму #{@payment.amount} руб. успешно принят. Спасибо!"
   end
-  
+
   def fail
     super
     redirect_to dashboard_path, varning: "Во время принятия платежа возникла ошибка. Мы скоро разберемся!"
   end
 end
 ```
+
+Testing
+-----
+In console:
+
+Clone gem
+```bash
+git clone git://github.com/shaggyone/robokassa.git
+```
+
+Install gems and generate a dummy application (It'll be ignored by git):
+```bash
+cd robokassa
+bundle install
+bundle exec combust
+```
+
+Run specs:
+```bash
+rake spec
+```
+
+Generate a dummy test application
 
 Plans
 -----
