@@ -4,4 +4,5 @@ Gemfile.lock
 pkg/*
 *.swp
 *.swo
-
+config.ru
+spec/internal
