@@ -27,7 +27,7 @@ class Robokassa::Interface
   end
 
   # Takes options to access Robokassa API
-  # 
+  #
   # === Example
   #   Robokassa::Interface.new test_mode: true, login: 'demo', password1: '12345', password2: 'qweqwe123'
   #
@@ -36,33 +36,27 @@ class Robokassa::Interface
     @cache   = {}
   end
 
-  # This method creates new instance of Interface for specified key (for multi-account support)
-  # it calls then Robokassa call ResultURL callback
-  def self.create_by_notification_key(key)
-    self.new(get_options_by_notification_key(key))
-  end
-  
   # This method verificates request params recived from robocassa server
   def notify(params, controller)
     parsed_params = map_params(params, @@notification_params_map)
-    self.class.notify_implementation(
-      parsed_params[:invoice_id], 
-      parsed_params[:amount], 
-      parsed_params[:custom_options], 
+    notify_implementation(
+      parsed_params[:invoice_id],
+      parsed_params[:amount],
+      parsed_params[:custom_options],
       controller)
     "OK#{parsed_params[:invoice_id]}"
   end
-  
+
   # Handler for success api callback
   # this method calls from RobokassaController
   # It requires Robokassa::Interface.success_implementation to be inmplemented by user
   def self.success(params, controller)
     parsed_params = map_params(params, @@notification_params_map)
     success_implementation(
-      parsed_params[:invoice_id], 
-      parsed_params[:amount], 
-      parsed_params[:language], 
-      parsed_params[:custom_options], 
+      parsed_params[:invoice_id],
+      parsed_params[:amount],
+      parsed_params[:language],
+      parsed_params[:custom_options],
       controller)
   end
 
@@ -71,10 +65,10 @@ class Robokassa::Interface
   def self.fail(params, controller)
     parsed_params = map_params(params, @@notification_params_map)
     fail_implementation(
-      parsed_params[:invoice_id], 
-      parsed_params[:amount], 
-      parsed_params[:language], 
-      parsed_params[:custom_options], 
+      parsed_params[:invoice_id],
+      parsed_params[:amount],
+      parsed_params[:language],
+      parsed_params[:custom_options],
       controller)
   end
 
@@ -346,9 +340,15 @@ class Robokassa::Interface
       get_remote_xml(url)
     end
   end
-  
-  
+
+
   class << self
+    # This method creates new instance of Interface for specified key (for multi-account support)
+    # it calls then Robokassa call ResultURL callback
+    def create_by_notification_key(key)
+      self.new get_options_by_notification_key(key)
+    end
+
     %w{success fail notify}.map{|m| m + '_implementation'} + ['get_options_by_notification_key'].each do |m|
       define_method m.to_sym do |*args|
         raise NoMethodError, "Robokassa::Interface.#{m} should be defined by app developer"
