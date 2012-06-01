@@ -96,7 +96,7 @@ class Robokassa::Interface
   end
 
   def rates_long(amount, currency='')
-    cache_key = "rates_long_#{currency}_#{amount}".to_sym
+    cache_key = "rates_long_#{currency}_#{amount}"
     return @cache[cache_key] if @cache[cache_key]
     xml = get_remote_xml(rates_url(amount, currency))
     if xml.elements['RatesList/Result/Code'].text != '0'
@@ -128,15 +128,35 @@ class Robokassa::Interface
   end
 
   def rates(amount, currency='')
-    cache_key = "rates_#{currency}_#{amount}".to_sym
+    cache_key = "rates_#{currency}_#{amount}"
     @cache[cache_key] ||= Hash[rates_long(amount, currency).map do |key, value|
       [key, {
         :description => value[:description],
         :currencies => Hash[(value[:currencies] || []).map do |k, v|
-          [k, v]
+        [k, v]
         end]
       }]
     end]
+  end
+
+  def rates_linear(amount, currency='')
+    cache_key = "rates_linear#{currency}_#{amount}"
+    @cache[cache_key] ||= begin
+                            retval = rates(amount, currency).map do |group|
+                              group_name, group = group
+                              group[:currencies].map do |currency|
+                                currency_name, currency = currency
+                                {
+                                  :name       => currency_name,
+                                  :desc       => currency[:currency_description],
+                                  :group_name => group[:name],
+                                  :group_desc => group[:description],
+                                  :amount     => currency[:amount]
+                                }
+                              end
+                            end
+                            Hash[retval.flatten.map { |v| [v[:name], v] }]
+                          end
   end
 
   def currencies_long
