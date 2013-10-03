@@ -6,7 +6,7 @@ This gem adds robokassa support to your app.
 Robokassa is payment system, that provides a single simple interface for payment systems popular in Russia.
 If you have customers in Russia you can use the gem.
 
-The first thing about this gem, is that it was oribinally desgned for spree commerce. So keep it im mind.
+The first thing about this gem, is that it was oribinally designed for spree commerce. So keep it in mind.
 
 
 Using the Gem
