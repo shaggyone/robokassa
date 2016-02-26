@@ -249,7 +249,7 @@ class Robokassa::Interface
 
   # make hash of options for init_payment_url
   def init_payment_options(invoice_id, amount, description, custom_options = {}, currency='', language='ru', email='')
-    options = {
+    options_hash = {
       :login       => @options[:login],
       :amount      => amount.to_s,
       :invoice_id  => invoice_id,
@@ -258,7 +258,9 @@ class Robokassa::Interface
       :currency    => currency,
       :email       => email,
       :language    => language
-    }.merge(Hash[custom_options.sort.map{|x| ["shp#{x[0]}", x[1]]}])
+    }
+    options_hash[:is_test] = 1 if test_mode?
+    options = options_hash.merge(Hash[custom_options.sort.map{|x| ["shp#{x[0]}", x[1]]}])
     map_params(options, @@params_map)
   end
 
@@ -284,9 +286,8 @@ class Robokassa::Interface
     "#{@options[:login]}:#{amount}:#{invoice_id}:#{@options[:password1]}#{unless custom_options_fmt.blank? then ":" + custom_options_fmt else "" end}"
   end
 
-  # returns http://test.robokassa.ru or https://merchant.roboxchange.com in order to current mode
   def base_url
-    test_mode? ? 'http://test.robokassa.ru' : 'https://merchant.roboxchange.com'
+    'https://merchant.roboxchange.com'
   end
 
   # returns url to redirect user to payment page
@@ -314,7 +315,8 @@ class Robokassa::Interface
       'Email'          => :email,
       'IncCurrLabel'   => :currency,
       'Culture'        => :language,
-      'SignatureValue' => :signature
+      'SignatureValue' => :signature,
+      'IsTest' => :is_test
     }.invert
 
   @@service_params_map = {
