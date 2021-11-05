@@ -1,3 +1,10 @@
+NOTE
+----
+This gem is obsolete and not supported for 10 years or so.
+
+Consider using gems from: https://github.com/PaymentInstruments/robokassa
+
+
 SUMMARY
 -------
 
